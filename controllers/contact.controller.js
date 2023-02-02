@@ -19,18 +19,11 @@ const getContactById = async (req, res, next) => {
             return next(HttpError(404, "wrong ID", "NotFound"));
         }
         
-        const data = await Contact.findById(contactId);
+        const data = await Contact.findOne({ "_id": contactId, "owner": _id });
     
         if (!data) {
             return next(HttpError(404, "Not found", "NotFound"));
         }
-        if (!data.owner) {
-            return next(HttpError(404, "Not found", "NotFound"));
-        }
-        if (data.owner.toString() !== _id.toString()) {
-            return next(HttpError(404, "Not found", "NotFound"));
-        }
-        
         res.status(200).json({ data });
     } catch (err) {
         next(err);
@@ -59,24 +52,15 @@ const removeContact = async (req, res, next) => {
         const { _id } = req.user;
         const { contactId } = req.params;
         if (contactId.length !== 24) {
-            return next(HttpError(404, "wrong ID", "NotFound"));
+            return next(HttpError(404, "Wrong ID", "NotFound"));
         }
 
-        // owner check before delete
-        const check = await Contact.findById(contactId);
-        if (!check) {
-            return next(HttpError(404, "Not found", "NotFound"));
+        const data = await Contact.findOneAndDelete({ _id: contactId, owner: _id });
+        if (!data) {
+            return next(HttpError(404, "Contact not found", "NotFound"));
         }
-        if (!check.owner) {
-            return next(HttpError(404, "Not found", "NotFound"));
-        }
-
-        if (check.owner.toString() === _id.toString()) {
-            // delete
-            const data = await Contact.findByIdAndDelete(contactId);
-            console.log(`contact ${data} was deleted`);
-            res.status(200).json({ message: "contact deleted" });
-        } else HttpError(404, "Not found", "NotFound");
+        console.log(`Contact ${contactId} was deleted`);
+        res.status(200).json({ message: "Contact deleted" });
     } catch (err) {
         next(err);
     }
@@ -88,29 +72,18 @@ const updateContact = async (req, res, next) => {
         const { _id } = req.user;
         const { error } = validationSchema.validate(req.body);
         if (error) {
-            return next(HttpError(400, "missing field name", "ValidationError"));
+            return next(HttpError(400, error.details[0].message, "ValidationError"));
         }
 
         const contactId = req.params.contactId;
-        const message = "User updated successfully!";
-
-        // owner check before update
-        const check = await Contact.findById(contactId);
-        if (!check) {
-            return next(HttpError(404, "Not found", "NotFound"));
+        const updatedContact = await Contact.findOneAndUpdate({ _id: contactId, owner: _id }, req.body, { new: true });
+        if (!updatedContact) {
+            return next(HttpError(404, "Contact not found", "NotFound"));
         }
-        if (!check.owner) {
-            return next(HttpError(404, "Not found", "NotFound"));
-        }
-        if (check.owner.toString() === _id.toString()) {
-            // update
-            const updatedContact = await Contact.findByIdAndUpdate(contactId, req.body, { new: true });
-        
-            res.status(200).json({ message, updatedContact })
-        } else HttpError(404, "Not found", "NotFound");
+        res.status(200).json({ message: "Contact updated successfully", updatedContact });
     } catch (err) {
-    
-    };
+        next(err);
+    }
 };
 
 
@@ -118,20 +91,18 @@ const updateFavoriteStatus = async (req, res, next) => {
     try {
         const { error } = updateFavoriteSchema.validate(req.body);
         if (error) {
-            return next(HttpError(400, "missing field favorite", "ValidationError"));
+            return next(HttpError(400, error.details[0].message, "ValidationError"));
         }
 
         const contactId = req.params.contactId;
-        const message = "Favorite status updated successfully!";
-
         const updatedContact = await Contact.findByIdAndUpdate(contactId, req.body, { new: true });
         if (!updatedContact) {
-            return next(HttpError(404, "Not found", "NotFound"));
+            return next(HttpError(404, "Contact not found", "NotFound"));
         }
-        res.status(200).json({ message, updatedContact });
+        res.status(200).json({ message: "Favorite status updated successfully", updatedContact });
     } catch (err) {
-    
-    };
+        next(err);
+    }
 };
 
 module.exports = {
