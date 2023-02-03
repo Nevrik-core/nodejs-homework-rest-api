@@ -1,28 +1,49 @@
-const { Conflict, Unauthorized } = require("http-errors");
+const { Conflict, Unauthorized, BadRequest } = require("http-errors");
+const { HttpError } = require("../helpers");
 const { User, userValidationSchema } = require('../schemas/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const gravatar = require("gravatar");
 
 const { JWT_SECRET } = process.env;
-
-const { HttpError } = require("../helpers");
 
 async function register(req, res, next) {
     const { email, password } = req.body; 
 
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password, salt)
     try {
+
+        // Validate the input
+        const validationResult = userValidationSchema.validate({ email, password });
+        if (validationResult.error) {
+            throw new BadRequest(validationResult.error.message);
+        }
+
+         // Check if the email already exists
+        const user = await User.findOne({ email });
+        if (user) {
+            throw new Conflict("Email already in use");
+        }
+
+        // Hash the password
+        const salt = await bcrypt.genSalt();
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+         // Generate the avatar URL
+        const avatarURL = gravatar.url(email);
+
+        // Save the user
         const savedUser = await User.create({
             email,
             password: hashedPassword,
+            avatarURL
         });
-
+        
         res.status(201).json({
             data: {
                 user: {
                     email,
                     subscription: "starter",
+                    avatarURL
                 },
             },
         });
@@ -39,14 +60,14 @@ async function login(req, res, next) {
 
     const { email: userEmail, password } = req.body;
     const user = await User.findOne({
-        userEmail,
+        email: userEmail,
     })
     if (!user) {
         throw new HttpError(401, "Email or password is wrong", "WrongUser")
     };
     const { error } = userValidationSchema.validate(req.body);
     if (error) {
-        throw HttpError(400, "missing required name field", "ValidationError");
+        throw new HttpError(400, "missing required name field", "ValidationError");
     }
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
@@ -70,7 +91,7 @@ async function login(req, res, next) {
 const logout = async (req, res, next) => {
   const { _id } = req.user;
   await User.findByIdAndUpdate(_id, { token: null });
-  res.status(204).json();
+  res.status(204).send();
 };
 
 module.exports = {

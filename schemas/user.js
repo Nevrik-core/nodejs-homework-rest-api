@@ -25,6 +25,7 @@ const schema = mongoose.Schema({
         type: String,
         default: null,
      },
+     avatarURL: String,
 },
     {
     timestamps: true,
