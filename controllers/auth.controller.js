@@ -24,20 +24,16 @@ async function register(req, res, next) {
             throw new Conflict("Email already in use");
         }
 
-        // Hash the password
-        const salt = await bcrypt.genSalt();
-        const hashedPassword = await bcrypt.hash(password, salt);
-
          // Generate the avatar URL
         const avatarURL = gravatar.url(email);
 
         // Save the user
         const savedUser = await User.create({
             email,
-            password: hashedPassword,
+            password,
             avatarURL
         });
-        
+
         res.status(201).json({
             data: {
                 user: {

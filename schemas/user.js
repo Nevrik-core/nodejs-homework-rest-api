@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Joi = require("joi");
+const bcrypt = require("bcrypt");
 
 const schema = mongoose.Schema({
     email: {
@@ -40,6 +41,14 @@ const subscriptionValidationSchema = Joi.object({
   subscription: Joi.string()
     .valid("starter", "pro", "business")
     .default("starter"),
+});
+
+schema.pre("save", async function () {
+  console.log("pre save", this);
+  const salt = await bcrypt.genSalt();
+  const hashedPassword = await bcrypt.hash(this.password, salt);
+
+  this.password = hashedPassword;
 });
 
 const User = mongoose.model("user", schema);
