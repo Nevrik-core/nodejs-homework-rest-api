@@ -3,6 +3,7 @@ const { subscriptionValidationSchema, User } = require("../schemas/user");
 const path = require("path");
 const fs = require("fs/promises");
 const Jimp = require("jimp");
+const sendEmail = require('../helpers/sendMail')
 
 
 
@@ -42,7 +43,7 @@ async function uploadAvatar(req, res, next) {
 
     if (!id) {
     throw HttpError(401, "Not authorized", "UnauthorizedError");
-}
+    }
     
     const { filename, mimetype } = req.file;
     const avatarPublicPath = path.resolve(__dirname, "../public/avatars", filename);
@@ -70,10 +71,46 @@ async function uploadAvatar(req, res, next) {
         await fs.unlink(avatarTmpPath);
         throw error;
     };
+};
+
+async function verifyEmail(req, res, next ) {
+    const { verificationToken } = req.params;
+    const user = await User.findOne({ verificationToken });
+    if (!user) {
+        throw HttpError(404, "Not found", "NotFound");
+    }
+    await User.findByIdAndUpdate(user._id, {
+    verify: true,
+    verificationToken: null,
+    });
+    res.json({ message: "Success" });
 }
+
+async function resendEmail(req, res, next) {
+    const { email } = req.body;
+
+    if (!email) {
+        throw HttpError("missing required field email", "ValidationError");
+    }
+    
+    const user = await User.findOne({email})
+    if (!user) {
+        throw HttpError(404, "Email not found", "NotFound");
+    }
+    if (user.verify) {
+        throw HttpError(400, "Verification has already been passed", "ValidationError");
+    }
+    const verificationToken = user.verificationToken;
+    await sendEmail(email, verificationToken);
+    res.json({ message: "Verification email resended" });
+    
+}
+
 
 module.exports = {
     getCurrentUser,
     subscriptionStatusUpdate,
-    uploadAvatar
+    uploadAvatar,
+    verifyEmail,
+    resendEmail,
 }

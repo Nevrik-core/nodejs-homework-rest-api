@@ -1,15 +1,17 @@
 const { Conflict, Unauthorized, BadRequest } = require("http-errors");
 const { HttpError } = require("../helpers");
+const sendMail = require("../helpers/sendMail")
 const { User, userValidationSchema } = require('../schemas/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const gravatar = require("gravatar");
+const { v4 } = require("uuid");
 
 const { JWT_SECRET } = process.env;
 
 async function register(req, res, next) {
     const { email, password } = req.body; 
-
+    const verificationToken = v4();
     try {
 
         // Validate the input
@@ -31,8 +33,12 @@ async function register(req, res, next) {
         const savedUser = await User.create({
             email,
             password,
-            avatarURL
+            avatarURL,
+            verificationToken
         });
+        
+        // Send confirmation email
+        await sendMail(email, verificationToken);
 
         res.status(201).json({
             data: {
@@ -61,6 +67,11 @@ async function login(req, res, next) {
     if (!user) {
         throw new HttpError(401, "Email or password is wrong", "WrongUser")
     };
+
+    if (!user.verify) {
+        throw new HttpError(401, "Email is not verified. Please check your mail box.", "WrongUser")
+    };
+
     const { error } = userValidationSchema.validate(req.body);
     if (error) {
         throw new HttpError(400, "missing required name field", "ValidationError");

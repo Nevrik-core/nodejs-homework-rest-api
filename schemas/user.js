@@ -18,17 +18,25 @@ const schema = mongoose.Schema({
         minLength: [6, "password should be at least 6 characters long"]
     },
     subscription: {
-    type: String,
-    enum: ["starter", "pro", "business"],
-    default: "starter"
+        type: String,
+        enum: ["starter", "pro", "business"],
+        default: "starter"
     },
     token: {
         type: String,
         default: null,
      },
-     avatarURL: String,
+    avatarURL: String,
+    verify: {
+        type: Boolean,
+        default: false,
+    },
+    verificationToken: {
+        type: String,
+        required: [true, 'Verify token is required'],
+    },
 },
-    {
+{
     timestamps: true,
 });
 
